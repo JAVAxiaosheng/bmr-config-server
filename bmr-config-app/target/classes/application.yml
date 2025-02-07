@@ -1,0 +1,11 @@
+server:
+  port: 4643
+spring:
+  profiles:
+    active: dev
+  application:
+    name: bmr-config-server
+
+logging:
+  level:
+    root: info
