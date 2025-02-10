@@ -4,7 +4,7 @@ spring:
       url: jdbc:mysql://localhost:3306/bmr_config?useSSL=true&useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&rewriteBatchedStatements=true
       driver-class-name: com.mysql.cj.jdbc.Driver
       username: root
-      password: 123456789
+      password: 1234
   redis:
     host: 127.0.0.1
     port: 6379
@@ -20,7 +20,7 @@ mybatis-plus:
   type-aliases-package: com.ant.bmr.config.data.metadata
 
 minio:
-  endpoint: http://localhost:9001
+  endpoint: http://localhost:9000
   accessKey: minioadmin
   secretKey: minioadmin
 
