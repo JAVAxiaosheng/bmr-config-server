@@ -34,7 +34,7 @@ public class ConnectionChecker implements ApplicationRunner {
     private void checkMysqlConnection() {
         try {
             jdbcTemplate.execute("SELECT 1");
-            log.info("MySQL connection success");
+            log.info("MySQL connection success!");
         } catch (Exception e) {
             log.error("MySQL connection failed: {}", e.getMessage());
             throw new RuntimeException("Failed to connect to MySQL", e);
@@ -44,7 +44,7 @@ public class ConnectionChecker implements ApplicationRunner {
     private void checkRedisConnection() {
         try (RedisConnection connection = redisConnectionFactory.getConnection()) {
             connection.ping();
-            log.info("Redis connection success");
+            log.info("Redis connection success!");
         } catch (Exception e) {
             log.error("Redis connection failed: {}", e.getMessage());
             throw new RuntimeException("Failed to connect to Redis", e);
@@ -54,7 +54,7 @@ public class ConnectionChecker implements ApplicationRunner {
     private void checkMinioConnection() {
         try {
             minioClient.listBuckets();
-            log.info("Minio connection success");
+            log.info("Minio connection success!");
         } catch (Exception e) {
             log.error("Minio connection failed: {}", e.getMessage());
             throw new RuntimeException("Failed to connect to Minio", e);

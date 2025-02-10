@@ -2,7 +2,7 @@ package com.ant.bmr.config.common.context;
 
 public class FileContext {
     public static final String FILA_PATH_SEPARATOR = "/";
-    public static final String FILE_PATH_DATE_FORMAT = "yyyy-MM-dd HH:mm:ss";
+    public static final String FILE_PATH_DATE_FORMAT = "yyyy-MM-dd HH-mm-ss";
     public static final String YML_KEY_SEPARATOR = ".";
     public static final String BUCKET_NAME = "bmr-config";
     public static final String PATH_CLUSTER_ID_PREFIX = "cluster-id-";
