@@ -46,9 +46,9 @@ public class FileOpCoreServiceImpl implements FileOpCoreService {
     @Override
     public List<ConfigFileInfoDTO> getConfigFilesByNodeGroupId(Long nodeGroupId) {
         return configFileInfoService.queryConfigFilesByNodeGroupId(nodeGroupId)
-            .stream().map(item -> new ConfigFileInfoDTO(item, minioService
-                .getDownloadFileURL(FileContext.BUCKET_NAME, item.getFilePath())))
-            .collect(Collectors.toList());
+                .stream().map(item -> new ConfigFileInfoDTO(item, minioService
+                        .getDownloadFileURL(FileContext.BUCKET_NAME, item.getFilePath())))
+                .collect(Collectors.toList());
     }
 
     @Override
@@ -75,12 +75,12 @@ public class FileOpCoreServiceImpl implements FileOpCoreService {
 
         //上传文件到Minio
         String concatFilePath = ConfigFileUtil.concatUploadFilePath(
-            clusterId, nodeGroupId, originalFilename);
+                clusterId, nodeGroupId, originalFilename);
         String uploadFilePath = minioService.uploadFile(FileContext.BUCKET_NAME,
-            multipartFile, concatFilePath);
+                multipartFile, concatFilePath);
         // 一锁表
         ConfigFileInfo lockInfo = configFileInfoService.
-            lockConfigFileInfo(clusterId, nodeGroupId, originalFilename);
+                lockConfigFileInfo(clusterId, nodeGroupId, originalFilename);
 
         ConfigFileInfo fileDbInfo = new ConfigFileInfo();
         fileDbInfo.setFileDescription(request.getFileDescription());
@@ -116,18 +116,18 @@ public class FileOpCoreServiceImpl implements FileOpCoreService {
      * 保存可解析文件的配置项:先删后加
      */
     private Boolean saveAnalyzeFileItems(Long fileId, String originFileName,
-        List<Map<String, String>> fileItems) {
+                                         List<Map<String, String>> fileItems) {
         if (CollectionUtils.isEmpty(fileItems) || Objects.isNull(fileId)
-            || Objects.isNull(originFileName)) {
+                || Objects.isNull(originFileName)) {
             return false;
         }
         // 删除该文件下的所有配置项
         configFileItemService.deleteItemsByFileId(fileId);
         // 新增
         List<ConfigFileItem> configFileItems = fileItems.stream()
-            .flatMap(itemMap -> itemMap.entrySet().stream())
-            .map(item -> new ConfigFileItem(fileId, originFileName, item.getKey(), item.getValue()))
-            .collect(Collectors.toList());
+                .flatMap(itemMap -> itemMap.entrySet().stream())
+                .map(item -> new ConfigFileItem(fileId, originFileName, item.getKey(), item.getValue()))
+                .collect(Collectors.toList());
         return configFileItemService.saveBatchItems(configFileItems);
     }
 
@@ -142,19 +142,19 @@ public class FileOpCoreServiceImpl implements FileOpCoreService {
         }
         // 获取文件的下载路径
         String downloadFileURL = minioService.getDownloadFileURL(
-            FileContext.BUCKET_NAME, dbFileInfo.getFilePath(), 1, TimeUnit.MINUTES);
+                FileContext.BUCKET_NAME, dbFileInfo.getFilePath());
         response.setFileInfo(new ConfigFileInfoDTO(dbFileInfo, downloadFileURL));
 
         if (dbFileInfo.getAnalyze()) {
             // 可以解析查配置项
             List<ConfigFileItem> dbFileItems = configFileItemService.queryItemsByFileId(fileId);
             response.setFileItems(dbFileItems.stream()
-                .map(ConfigFileItemDTO::new)
-                .collect(Collectors.toList()));
+                    .map(ConfigFileItemDTO::new)
+                    .collect(Collectors.toList()));
         } else {
             // 不能解析查询文件内容
             response.setFileContext(minioService
-                .getFileContext(FileContext.BUCKET_NAME, dbFileInfo.getFilePath()));
+                    .getFileContext(FileContext.BUCKET_NAME, dbFileInfo.getFilePath()));
         }
         return response;
     }
