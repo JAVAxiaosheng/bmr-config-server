@@ -15,13 +15,7 @@ import io.swagger.annotations.ApiOperation;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.ModelAttribute;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/file/op/core")
@@ -47,7 +41,13 @@ public class FileOpCoreController {
     @PostMapping(value = "/query/file/context", produces = MediaType.APPLICATION_JSON_VALUE)
     @ApiOperation(value = "查询单个文件内容", httpMethod = "POST")
     public Result<QueryOneFileContextResponse> queryOneFileContext(
-        @RequestBody @Validated QueryOneFileContextRequest request) {
+            @RequestBody @Validated QueryOneFileContextRequest request) {
         return Result.success(fileOpCoreService.queryOneFileContext(request));
+    }
+
+    @DeleteMapping(value = "/delete/file/by/id", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ApiOperation(value = "删除单个文件", httpMethod = "DELETE")
+    public Result<Boolean> deleteConfigFileByFileId(@RequestParam Long fileId) {
+        return Result.success(fileOpCoreService.deleteConfigFileByFileId(fileId));
     }
 }
