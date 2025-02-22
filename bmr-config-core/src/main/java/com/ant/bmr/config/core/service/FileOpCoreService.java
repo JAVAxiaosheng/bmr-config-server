@@ -34,4 +34,14 @@ public interface FileOpCoreService {
      */
     QueryOneFileContextResponse queryOneFileContext(QueryOneFileContextRequest request);
 
+
+    /**
+     * 根据文件Id删除文件
+     *
+     * @param fileId 文件Id
+     * @return boolean
+     */
+    Boolean deleteConfigFileByFileId(Long fileId);
+
+
 }

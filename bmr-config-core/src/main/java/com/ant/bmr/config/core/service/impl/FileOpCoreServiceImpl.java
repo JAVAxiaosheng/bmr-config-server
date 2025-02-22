@@ -157,4 +157,26 @@ public class FileOpCoreServiceImpl implements FileOpCoreService {
         }
         return response;
     }
+
+    @Override
+    @Transactional(rollbackFor = RuntimeException.class)
+    public Boolean deleteConfigFileByFileId(Long fileId) {
+        // 先查文件是否存在
+        ConfigFileInfo fileInfo = configFileInfoService.getById(fileId);
+        if (Objects.isNull(fileInfo)) {
+            throw new RuntimeException("file is not exist,fileId:" + fileId);
+        }
+
+        // 判断文件是否可解析
+        boolean itemDelFlag = true;
+        if (fileInfo.getAnalyze()) {
+            // 删除配置项
+            itemDelFlag = configFileItemService.deleteItemsByFileId(fileId);
+        }
+
+        // 文件删除
+        boolean fileDelFlag = configFileInfoService.removeById(fileId);
+
+        return fileDelFlag && itemDelFlag;
+    }
 }
