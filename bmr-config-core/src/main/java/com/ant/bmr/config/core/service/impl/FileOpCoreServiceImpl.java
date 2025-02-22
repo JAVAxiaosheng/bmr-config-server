@@ -169,6 +169,7 @@ public class FileOpCoreServiceImpl implements FileOpCoreService {
 
         // 判断文件是否可解析
         boolean itemDelFlag = true;
+
         if (fileInfo.getAnalyze()) {
             // 删除配置项
             itemDelFlag = configFileItemService.deleteItemsByFileId(fileId);
