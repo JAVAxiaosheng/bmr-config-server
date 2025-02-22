@@ -2,7 +2,7 @@ server:
   port: 4643
 spring:
   profiles:
-    active: dev
+    active: uat
   application:
     name: bmr-config-server
   servlet:

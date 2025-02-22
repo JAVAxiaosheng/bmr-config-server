@@ -1,5 +1,5 @@
 host:
-  ip: 127.0.0.1
+    ip: 192.168.206.201
 
 spring:
   datasource:
@@ -7,7 +7,7 @@ spring:
       url: jdbc:mysql://${host.ip}:3306/bmr_config?useSSL=true&useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&rewriteBatchedStatements=true
       driver-class-name: com.mysql.cj.jdbc.Driver
       username: root
-      password: 1234
+      password: 123456
   redis:
     host: ${host.ip}
     port: 6379
