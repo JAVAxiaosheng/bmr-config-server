@@ -1,5 +1,5 @@
 host:
-    ip: 192.168.206.201
+    ip: 192.168.5.7
 
 spring:
   datasource:
