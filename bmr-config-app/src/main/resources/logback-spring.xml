@@ -2,7 +2,7 @@
 <configuration>
 
     <!-- 定义日志文件的存储位置 -->
-    <property name="LOG_PATH" value="/usr/local/project/bmr-config-server/logs"/>
+    <property name="LOG_PATH" value="logs"/>
 
     <!-- 控制台输出 -->
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
