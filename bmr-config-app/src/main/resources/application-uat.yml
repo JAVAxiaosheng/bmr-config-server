@@ -23,7 +23,7 @@ mybatis-plus:
   type-aliases-package: com.ant.bmr.config.data.metadata
 
 minio:
-  endpoint: http://${host.ip}:9000
+  endpoint: http://127.0.0.1:9000
   accessKey: minioadmin
   secretKey: minioadmin
 
