@@ -1,5 +1,6 @@
 server:
   port: 4643
+  address: 0.0.0.0
 spring:
   profiles:
     active: uat
