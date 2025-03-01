@@ -1,5 +1,5 @@
 host:
-    ip: 192.168.5.7
+  ip: 192.168.5.7
 
 spring:
   datasource:
@@ -12,7 +12,7 @@ spring:
     host: ${host.ip}
     port: 6379
     password:
-    database: 0
+    database: 1
     connect-timeout: 3000
 
 mybatis-plus:
@@ -27,4 +27,6 @@ minio:
   accessKey: minioadmin
   secretKey: minioadmin
 
+redisson:
+  address: redis://${host.ip}:6379
 

@@ -27,4 +27,6 @@ minio:
   accessKey: minioadmin
   secretKey: minioadmin
 
+redisson:
+  address: redis://${host.ip}:6379
 
