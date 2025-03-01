@@ -3,13 +3,16 @@ package com.ant.bmr.config.core.service.impl;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import javax.annotation.Resource;
 
+import cn.hutool.core.util.StrUtil;
 import cn.hutool.crypto.SecureUtil;
 import com.ant.bmr.config.common.context.FileContext;
 import com.ant.bmr.config.common.context.GlobalContext;
+import com.ant.bmr.config.common.context.RedissonContext;
 import com.ant.bmr.config.common.utils.ConfigFileUtil;
 import com.ant.bmr.config.core.minio.MinioService;
 import com.ant.bmr.config.core.service.ConfigFileInfoService;
@@ -24,8 +27,11 @@ import com.ant.bmr.config.data.request.UploadFileRequest;
 import com.ant.bmr.config.data.response.QueryOneFileContextResponse;
 import com.baomidou.mybatisplus.core.toolkit.CollectionUtils;
 import lombok.extern.slf4j.Slf4j;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 @Service
@@ -42,6 +48,12 @@ public class FileOpCoreServiceImpl implements FileOpCoreService {
     @Resource
     private ConfigFileItemService configFileItemService;
 
+    @Resource
+    private RedissonClient redissonClient;
+
+    @Resource
+    private TransactionTemplate transactionTemplate;
+
     @Override
     public List<ConfigFileInfoDTO> getConfigFilesByNodeGroupId(Long nodeGroupId) {
         return configFileInfoService.queryConfigFilesByNodeGroupId(nodeGroupId)
@@ -53,60 +65,83 @@ public class FileOpCoreServiceImpl implements FileOpCoreService {
     @Override
     @Transactional(rollbackFor = RuntimeException.class)
     public Boolean uploadFile(UploadFileRequest request) {
-        MultipartFile multipartFile = request.getFile();
-        String originalFilename = multipartFile.getOriginalFilename();
-        Long clusterId = request.getClusterId();
-        Long nodeGroupId = request.getNodeGroupId();
-
-        String fileMd5;
+        // 分布式锁到节点组级别
+        String lockKey = StrUtil.concat(true,
+                RedissonContext.UPLOAD_FILE_LOCK_PREFIX,
+                StrUtil.DASHED, String.valueOf(request.getClusterId()),
+                StrUtil.DASHED, String.valueOf(request.getNodeGroupId()));
+        log.info("upload file redisson key:{}", lockKey);
+        RLock uploadFileLock = redissonClient.getLock(lockKey);
         try {
-            fileMd5 = SecureUtil.md5(multipartFile.getInputStream());
-        } catch (Exception e) {
-            log.error("get file md5 error,originalFilename: {}", originalFilename, e);
-            throw new RuntimeException("get file md5 error:", e);
-        }
-        if (Objects.isNull(fileMd5)) {
-            log.error("get file md5 is null,originalFilename: {}", originalFilename);
-            return false;
-        }
-        // 解析文件
-        List<Map<String, String>> fileItems = ConfigFileUtil.fileAnalyze(multipartFile);
+            // waitTime: 100s
+            boolean isLock = uploadFileLock.tryLock(100, TimeUnit.SECONDS);
+            if (isLock) {
+                // 编程式事务控制,防止脏读
+                transactionTemplate.execute(status -> {
+                    MultipartFile multipartFile = request.getFile();
+                    String originalFilename = multipartFile.getOriginalFilename();
+                    Long clusterId = request.getClusterId();
+                    Long nodeGroupId = request.getNodeGroupId();
 
-        //上传文件到Minio
-        String concatFilePath = ConfigFileUtil.concatUploadFilePath(
-                clusterId, nodeGroupId, originalFilename);
-        String uploadFilePath = minioService.uploadFile(FileContext.BUCKET_NAME,
-                multipartFile, concatFilePath);
-        // 一锁表
-        ConfigFileInfo lockInfo = configFileInfoService.
-                lockConfigFileInfo(clusterId, nodeGroupId, originalFilename);
+                    String fileMd5;
+                    try {
+                        fileMd5 = SecureUtil.md5(multipartFile.getInputStream());
+                    } catch (Exception e) {
+                        log.error("get file md5 error,originalFilename: {}", originalFilename, e);
+                        throw new RuntimeException("get file md5 error:", e);
+                    }
+                    if (Objects.isNull(fileMd5)) {
+                        log.error("get file md5 is null,originalFilename: {}", originalFilename);
+                        return false;
+                    }
+                    // 解析文件
+                    List<Map<String, String>> fileItems = ConfigFileUtil.fileAnalyze(multipartFile);
 
-        ConfigFileInfo fileDbInfo = new ConfigFileInfo();
-        fileDbInfo.setFileDescription(request.getFileDescription());
-        fileDbInfo.setAnalyze(CollectionUtils.isNotEmpty(fileItems));
-        fileDbInfo.setFilePath(uploadFilePath);
-        fileDbInfo.setFileMd5(fileMd5);
+                    //上传文件到Minio
+                    String concatFilePath = ConfigFileUtil.concatUploadFilePath(
+                            clusterId, nodeGroupId, originalFilename);
+                    String uploadFilePath = minioService.uploadFile(FileContext.BUCKET_NAME,
+                            multipartFile, concatFilePath);
+                    // 一锁表
+                    ConfigFileInfo lockInfo = configFileInfoService.
+                            lockConfigFileInfo(clusterId, nodeGroupId, originalFilename);
 
-        // 二判
-        if (Objects.isNull(lockInfo)) {
-            String fileName = ConfigFileUtil.splitFileName(originalFilename);
-            String fileType = ConfigFileUtil.splitFileType(originalFilename);
-            // 保存文件信息
-            fileDbInfo.setClusterId(clusterId);
-            fileDbInfo.setNodeGroupId(nodeGroupId);
-            fileDbInfo.setFileOriginName(originalFilename);
-            fileDbInfo.setFileName(fileName);
-            fileDbInfo.setFileType(fileType);
-            fileDbInfo.setCreateUser(GlobalContext.DEFAULT_USER_NAME);
-            configFileInfoService.saveConfigFileInfo(fileDbInfo);
-        } else {
-            // 更新文件信息
-            fileDbInfo.setId(lockInfo.getId());
-            configFileInfoService.updateConfigFileInfo(fileDbInfo);
-        }
-        // 保存可解析文件的配置项
-        if (CollectionUtils.isNotEmpty(fileItems)) {
-            return saveAnalyzeFileItems(fileDbInfo.getId(), originalFilename, fileItems);
+                    ConfigFileInfo fileDbInfo = new ConfigFileInfo();
+                    fileDbInfo.setFileDescription(request.getFileDescription());
+                    fileDbInfo.setAnalyze(CollectionUtils.isNotEmpty(fileItems));
+                    fileDbInfo.setFilePath(uploadFilePath);
+                    fileDbInfo.setFileMd5(fileMd5);
+
+                    // 二判
+                    if (Objects.isNull(lockInfo)) {
+                        String fileName = ConfigFileUtil.splitFileName(originalFilename);
+                        String fileType = ConfigFileUtil.splitFileType(originalFilename);
+                        // 保存文件信息
+                        fileDbInfo.setClusterId(clusterId);
+                        fileDbInfo.setNodeGroupId(nodeGroupId);
+                        fileDbInfo.setFileOriginName(originalFilename);
+                        fileDbInfo.setFileName(fileName);
+                        fileDbInfo.setFileType(fileType);
+                        fileDbInfo.setCreateUser(GlobalContext.DEFAULT_USER_NAME);
+                        configFileInfoService.saveConfigFileInfo(fileDbInfo);
+                    } else {
+                        // 更新文件信息
+                        fileDbInfo.setId(lockInfo.getId());
+                        configFileInfoService.updateConfigFileInfo(fileDbInfo);
+                    }
+                    // 保存可解析文件的配置项
+                    if (CollectionUtils.isNotEmpty(fileItems)) {
+                        return saveAnalyzeFileItems(fileDbInfo.getId(), originalFilename, fileItems);
+                    }
+
+                    return true;
+                });
+            }
+        } catch (InterruptedException e) {
+            log.error("upload file get lock error: {}", e.getMessage());
+            throw new RuntimeException("upload file get lock error: ", e);
+        } finally {
+            uploadFileLock.unlock();
         }
         return true;
     }
