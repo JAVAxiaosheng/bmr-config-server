@@ -7,6 +7,7 @@ import javax.annotation.Resource;
 import com.ant.bmr.config.common.result.Result;
 import com.ant.bmr.config.core.service.FileOpCoreService;
 import com.ant.bmr.config.data.dto.ConfigFileInfoDTO;
+import com.ant.bmr.config.data.request.ModifyFileRequest;
 import com.ant.bmr.config.data.request.QueryOneFileContextRequest;
 import com.ant.bmr.config.data.request.UploadFileRequest;
 import com.ant.bmr.config.data.response.QueryOneFileContextResponse;
@@ -49,5 +50,11 @@ public class FileOpCoreController {
     @ApiOperation(value = "删除单个文件", httpMethod = "DELETE")
     public Result<Boolean> deleteConfigFileByFileId(@RequestParam Long fileId) {
         return Result.success(fileOpCoreService.deleteConfigFileByFileId(fileId));
+    }
+
+    @PostMapping(value = "/modify/file", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ApiOperation(value = "修改文件内容", httpMethod = "POST")
+    public Result<Boolean> modifyConfigFile(@RequestBody @Validated ModifyFileRequest request) {
+        return Result.success(fileOpCoreService.modifyConfigFile(request));
     }
 }

@@ -1,15 +1,12 @@
 package com.ant.bmr.config.core.service.impl;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import javax.annotation.Resource;
 
 import cn.hutool.core.util.StrUtil;
-import cn.hutool.crypto.SecureUtil;
 import com.ant.bmr.config.common.context.FileContext;
 import com.ant.bmr.config.common.context.GlobalContext;
 import com.ant.bmr.config.common.context.RedissonContext;
@@ -22,6 +19,7 @@ import com.ant.bmr.config.data.dto.ConfigFileInfoDTO;
 import com.ant.bmr.config.data.dto.ConfigFileItemDTO;
 import com.ant.bmr.config.data.metadata.ConfigFileInfo;
 import com.ant.bmr.config.data.metadata.ConfigFileItem;
+import com.ant.bmr.config.data.request.ModifyFileRequest;
 import com.ant.bmr.config.data.request.QueryOneFileContextRequest;
 import com.ant.bmr.config.data.request.UploadFileRequest;
 import com.ant.bmr.config.data.response.QueryOneFileContextResponse;
@@ -66,15 +64,15 @@ public class FileOpCoreServiceImpl implements FileOpCoreService {
     @Transactional(rollbackFor = RuntimeException.class)
     public Boolean uploadFile(UploadFileRequest request) {
         // 分布式锁到节点组级别
-        String lockKey = StrUtil.concat(true,
+        String uploadLockKey = StrUtil.concat(true,
                 RedissonContext.UPLOAD_FILE_LOCK_PREFIX,
                 StrUtil.DASHED, String.valueOf(request.getClusterId()),
                 StrUtil.DASHED, String.valueOf(request.getNodeGroupId()));
-        log.info("upload file redisson key:{}", lockKey);
-        RLock uploadFileLock = redissonClient.getLock(lockKey);
+        log.info("upload file redisson key:{}", uploadLockKey);
+        RLock uploadFileLock = redissonClient.getLock(uploadLockKey);
         try {
             // waitTime: 100s
-            boolean isLock = uploadFileLock.tryLock(100, TimeUnit.SECONDS);
+            boolean isLock = uploadFileLock.tryLock(RedissonContext.REDISSON_LOCK_WAIT_TIME, TimeUnit.SECONDS);
             if (isLock) {
                 // 编程式事务控制,防止脏读
                 transactionTemplate.execute(status -> {
@@ -83,13 +81,7 @@ public class FileOpCoreServiceImpl implements FileOpCoreService {
                     Long clusterId = request.getClusterId();
                     Long nodeGroupId = request.getNodeGroupId();
 
-                    String fileMd5;
-                    try {
-                        fileMd5 = SecureUtil.md5(multipartFile.getInputStream());
-                    } catch (Exception e) {
-                        log.error("get file md5 error,originalFilename: {}", originalFilename, e);
-                        throw new RuntimeException("get file md5 error:", e);
-                    }
+                    String fileMd5 = ConfigFileUtil.getFileMd5(multipartFile);
                     if (Objects.isNull(fileMd5)) {
                         log.error("get file md5 is null,originalFilename: {}", originalFilename);
                         return false;
@@ -138,7 +130,7 @@ public class FileOpCoreServiceImpl implements FileOpCoreService {
                 });
             }
         } catch (InterruptedException e) {
-            log.error("upload file get lock error: {}", e.getMessage());
+            log.error("upload file get lock {} fail: {}", uploadLockKey, e.getMessage());
             throw new RuntimeException("upload file get lock error: ", e);
         } finally {
             uploadFileLock.unlock();
@@ -214,5 +206,85 @@ public class FileOpCoreServiceImpl implements FileOpCoreService {
         boolean fileDelFlag = configFileInfoService.removeById(fileId);
 
         return fileDelFlag && itemDelFlag;
+    }
+
+    @Override
+    public Boolean modifyConfigFile(ModifyFileRequest request) {
+        Long fileId = request.getFileId();
+        // 分布式锁控制到文件级别,防止并发修改
+        String modifyLockKey = StrUtil.concat(true,
+                RedissonContext.MODIFY_FILE_LOCK_PREFIX,
+                String.valueOf(fileId));
+        log.info("modify file lock key: {}", modifyLockKey);
+        RLock modifyLock = redissonClient.getLock(modifyLockKey);
+        try {
+            boolean isLock = modifyLock.tryLock(RedissonContext.REDISSON_LOCK_WAIT_TIME,
+                    TimeUnit.SECONDS);
+            if (isLock) {
+                // 对当前修改文件DB锁表
+                ConfigFileInfo fileInfo = configFileInfoService.lockConfigFileInfo(fileId);
+                if (Objects.isNull(fileInfo)) {
+                    throw new RuntimeException("file is not exist,fileId:" + fileId);
+                }
+                String fileOriginName = fileInfo.getFileOriginName();
+                // 生成文件的最新内容
+                String modifyFileContext = "";
+                if (request.getAnalyze()) {
+                    modifyFileContext = "xxxxx";
+                } else {
+                    modifyFileContext = request.getFileContext();
+                }
+
+                // 创建临时文件生成 MultipartFile
+                MultipartFile newFile = ConfigFileUtil.createTempFile(fileOriginName, modifyFileContext);
+
+                // 获取文件md5
+                String fileMd5 = ConfigFileUtil.getFileMd5(newFile);
+
+                // 上传文件
+                String concatFilePath = ConfigFileUtil.concatUploadFilePath(
+                        fileInfo.getClusterId(), fileInfo.getNodeGroupId(), fileOriginName);
+                String uploadFilePath = minioService.uploadFile(FileContext.BUCKET_NAME,
+                        newFile, concatFilePath);
+
+                String newFileContext = minioService.getFileContext(FileContext.BUCKET_NAME, uploadFilePath);
+                // 获取文件最新的内容与修改后内容匹配,上传成功
+                if (!StrUtil.equals(modifyFileContext, newFileContext)) {
+                    log.error("modify file context fail,fileId:{}, newFileContext:{}", fileId, newFileContext);
+                    throw new RuntimeException("modify file context fail");
+                }
+
+                // 更新DB
+                ConfigFileInfo updateInfo = new ConfigFileInfo();
+                updateInfo.setId(fileId);
+                updateInfo.setFileMd5(fileMd5);
+                updateInfo.setFilePath(uploadFilePath);
+                configFileInfoService.updateById(updateInfo);
+
+                if (request.getAnalyze()) {
+                    List<ConfigFileItemDTO> fileItemDTOs = request.getFileItems();
+                    if (CollectionUtils.isNotEmpty(fileItemDTOs)) {
+                        log.error("file item is empty fileId:{}, newFileContext:{}", fileId, newFileContext);
+                        throw new RuntimeException("file item is empty");
+                    }
+                    // 转为Map结构体批量处理配置项
+                    List<Map<String, String>> fileItems = fileItemDTOs.stream()
+                            .map(item -> {
+                                Map<String, String> fileItemMap = Collections.synchronizedMap(new LinkedHashMap<>());
+                                fileItemMap.put(item.getFileItemKey(), item.getFileItemValue());
+                                return fileItemMap;
+                            }).collect(Collectors.toList());
+
+                    // 存储可解析的文件配置项
+                    saveAnalyzeFileItems(fileId, fileOriginName, fileItems);
+                }
+            }
+        } catch (Exception e) {
+            log.error("modify file get lock {} fail: {}", modifyLockKey, e.getMessage());
+            throw new RuntimeException("modify file get lock error: ", e);
+        } finally {
+            modifyLock.unlock();
+        }
+        return true;
     }
 }

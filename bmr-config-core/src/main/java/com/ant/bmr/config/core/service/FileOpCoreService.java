@@ -4,6 +4,7 @@ package com.ant.bmr.config.core.service;
 import java.util.List;
 
 import com.ant.bmr.config.data.dto.ConfigFileInfoDTO;
+import com.ant.bmr.config.data.request.ModifyFileRequest;
 import com.ant.bmr.config.data.request.QueryOneFileContextRequest;
 import com.ant.bmr.config.data.request.UploadFileRequest;
 import com.ant.bmr.config.data.response.QueryOneFileContextResponse;
@@ -43,5 +44,13 @@ public interface FileOpCoreService {
      */
     Boolean deleteConfigFileByFileId(Long fileId);
 
+
+    /**
+     * 修改文件
+     *
+     * @param request 修改文件请求
+     * @return boolean
+     */
+    Boolean modifyConfigFile(ModifyFileRequest request);
 
 }

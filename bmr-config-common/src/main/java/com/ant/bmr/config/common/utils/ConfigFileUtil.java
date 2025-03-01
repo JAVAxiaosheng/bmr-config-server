@@ -1,21 +1,16 @@
 package com.ant.bmr.config.common.utils;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
-import java.util.Collections;
-import java.util.Date;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
+import cn.hutool.crypto.SecureUtil;
+import org.springframework.mock.web.MockMultipartFile;
+import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.core.util.XmlUtil;
 import cn.hutool.setting.yaml.YamlUtil;
@@ -77,14 +72,14 @@ public class ConfigFileUtil {
                 for (int i = 0; i < propertyTags.getLength(); i++) {
                     // 保证插入顺序和取出顺序一致和线程安全问题
                     Map<String, String> fileItemMap = Collections.synchronizedMap(new LinkedHashMap<>());
-                    Element item = (Element)propertyTags.item(i);
+                    Element item = (Element) propertyTags.item(i);
                     String name = XmlUtil.elementText(item, FileContext.XML_NAME_TAG_NAME);
                     String value = XmlUtil.elementText(item, FileContext.XML_VALUE_TAG_NAME);
                     fileItemMap.put(name, value);
                     fileItems.add(fileItemMap);
                 }
             } else if (StrUtil.equals(FileTypeEnum.YML.getCode(), fileType) ||
-                StrUtil.equals(FileTypeEnum.YAML.getCode(), fileType)) {
+                    StrUtil.equals(FileTypeEnum.YAML.getCode(), fileType)) {
                 Map<String, Object> load = YamlUtil.load(file.getInputStream(), Map.class);
                 flattenMap(load, "", fileItems);
                 return fileItems;
@@ -100,11 +95,11 @@ public class ConfigFileUtil {
     public static String concatUploadFilePath(Long clusterId, Long nodeGroupId, String originalFilename) {
         SimpleDateFormat format = new SimpleDateFormat(FileContext.FILE_PATH_DATE_FORMAT);
         return concatStrBySeparator(FileContext.FILA_PATH_SEPARATOR,
-            FileContext.PATH_CLUSTER_ID_PREFIX + clusterId,
-            FileContext.PATH_NODE_GROUP_ID_PREFIX + nodeGroupId,
-            splitFileName(originalFilename),
-            format.format(new Date()),
-            originalFilename);
+                FileContext.PATH_CLUSTER_ID_PREFIX + clusterId,
+                FileContext.PATH_NODE_GROUP_ID_PREFIX + nodeGroupId,
+                splitFileName(originalFilename),
+                format.format(new Date()),
+                originalFilename);
     }
 
     private static String concatStrBySeparator(String separator, String... strParams) {
@@ -124,10 +119,24 @@ public class ConfigFileUtil {
         }
     }
 
+    // File转为MultipartFile
+    private static MultipartFile convertToMultipartFile(File file) {
+        try (FileInputStream inputStream = new FileInputStream(file)) {
+            return new MockMultipartFile(
+                    "file",
+                    file.getName(),
+                    "application/octet-stream", // 通用二进制类型
+                    inputStream
+            );
+        } catch (Exception e) {
+            throw new RuntimeException("convert to multipartFile fail fileName:" + file.getName(), e);
+        }
+    }
+
     private static String readFileContext(InputStream inputStream) {
         lock.lock();
         try (BufferedReader reader = new BufferedReader(
-            new InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
+                new InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
             // 使用流式处理读取文件内容
             return reader.lines().collect(Collectors.joining(System.lineSeparator()));
         } catch (IOException e) {
@@ -147,7 +156,7 @@ public class ConfigFileUtil {
 
             if (value instanceof Map) {
                 // 递归处理嵌套的Map
-                flattenMap((Map<String, Object>)value, fullKey, result);
+                flattenMap((Map<String, Object>) value, fullKey, result);
             } else {
                 // 将键值对添加到结果列表中
                 Map<String, String> keyValueMap = Collections.synchronizedMap(new LinkedHashMap<>());
@@ -157,4 +166,23 @@ public class ConfigFileUtil {
         }
     }
 
+    public static MultipartFile createTempFile(String fileOriginName, String fileContext) {
+        File tempFile = FileUtil.touch(System.getProperty("user.dir") + StrUtil.BACKSLASH + fileOriginName);
+        log.info("文件生成路径:{}", tempFile.getPath());
+        FileUtil.writeString(fileContext, tempFile, StandardCharsets.UTF_8);
+        MultipartFile multipartFile = convertToMultipartFile(tempFile);
+        FileUtil.del(tempFile);
+        return multipartFile;
+    }
+
+    public static String getFileMd5(MultipartFile multipartFile) {
+        String fileMd5;
+        try {
+            fileMd5 = SecureUtil.md5(multipartFile.getInputStream());
+        } catch (Exception e) {
+            log.error("get file md5 error,originalFilename: {}", multipartFile.getOriginalFilename(), e);
+            throw new RuntimeException("get file md5 error:", e);
+        }
+        return fileMd5;
+    }
 }

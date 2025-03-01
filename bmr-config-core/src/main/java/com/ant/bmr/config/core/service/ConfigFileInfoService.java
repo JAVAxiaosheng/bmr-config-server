@@ -39,4 +39,12 @@ public interface ConfigFileInfoService extends IService<ConfigFileInfo> {
      * @return ConfigFileInfo
      */
     ConfigFileInfo lockConfigFileInfo(Long clusterId, Long nodeGroupId, String originName);
+
+    /**
+     * 根据fileId锁表格
+     *
+     * @param fileId fileId
+     * @return ConfigFileInfo
+     */
+    ConfigFileInfo lockConfigFileInfo(Long fileId);
 }
