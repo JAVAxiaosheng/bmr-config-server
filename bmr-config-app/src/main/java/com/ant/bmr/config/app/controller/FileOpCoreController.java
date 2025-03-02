@@ -35,7 +35,7 @@ public class FileOpCoreController {
 
     @PostMapping(value = "/upload/file", produces = MediaType.APPLICATION_JSON_VALUE)
     @ApiOperation(value = "单个文件上传", httpMethod = "POST")
-    public Result<Boolean> uploadFile(@ModelAttribute @Validated UploadFileRequest request) throws Exception {
+    public Result<Boolean> uploadFile(@ModelAttribute @Validated UploadFileRequest request) {
         return Result.success(fileOpCoreService.uploadFile(request));
     }
 
