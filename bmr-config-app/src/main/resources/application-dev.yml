@@ -14,6 +14,17 @@ spring:
     password:
     database: 0
     connect-timeout: 3000
+  #链路追踪
+  sleuth:
+    sampler:
+      probability: 1.0
+    redis:
+      enabled: false
+  zipkin:
+    base-url: http://${host.ip}:9411
+    sender:
+      type: web
+    discovery-client-enabled: false
 
 mybatis-plus:
   configuration:

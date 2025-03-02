@@ -6,6 +6,7 @@ import javax.annotation.Resource;
 
 import com.ant.bmr.config.common.result.Result;
 import com.ant.bmr.config.core.service.FileOpCoreService;
+import com.ant.bmr.config.core.zipkin.TracerService;
 import com.ant.bmr.config.data.dto.ConfigFileInfoDTO;
 import com.ant.bmr.config.data.request.ModifyFileRequest;
 import com.ant.bmr.config.data.request.QueryOneFileContextRequest;
@@ -27,6 +28,9 @@ public class FileOpCoreController {
     @Resource
     private FileOpCoreService fileOpCoreService;
 
+    @Resource
+    private TracerService tracerService;
+
     @GetMapping(value = "/query/files/by/node/group/id", produces = MediaType.APPLICATION_JSON_VALUE)
     @ApiOperation(value = "查询节点组下的文件列表", httpMethod = "GET")
     public Result<List<ConfigFileInfoDTO>> getFilesByNodeGroupId(@RequestParam Long nodeGroupId) {
@@ -43,6 +47,7 @@ public class FileOpCoreController {
     @ApiOperation(value = "查询单个文件内容", httpMethod = "POST")
     public Result<QueryOneFileContextResponse> queryOneFileContext(
             @RequestBody @Validated QueryOneFileContextRequest request) {
+        tracerService.logToZipkin("查询单个文件内容请求参数：" + request.toString());
         return Result.success(fileOpCoreService.queryOneFileContext(request));
     }
 

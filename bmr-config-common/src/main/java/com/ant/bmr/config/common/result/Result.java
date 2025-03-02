@@ -3,7 +3,9 @@ package com.ant.bmr.config.common.result;
 
 import java.io.Serializable;
 
+import com.ant.bmr.config.common.context.GlobalContext;
 import lombok.Data;
+import org.slf4j.MDC;
 
 @Data
 public class Result<T> implements Serializable {
@@ -13,6 +15,7 @@ public class Result<T> implements Serializable {
     private String msg;
     private T data;
     private Boolean isSuccess;
+    private String traceId = MDC.get(GlobalContext.TRACE_ID);
 
     public Result() {
     }
