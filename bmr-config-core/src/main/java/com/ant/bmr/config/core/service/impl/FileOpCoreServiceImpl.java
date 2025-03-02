@@ -272,7 +272,7 @@ public class FileOpCoreServiceImpl implements FileOpCoreService {
 
                 if (request.getAnalyze()) {
                     List<ConfigFileItemDTO> fileItemDTOs = request.getFileItems();
-                    if (CollectionUtils.isNotEmpty(fileItemDTOs)) {
+                    if (CollectionUtils.isEmpty(fileItemDTOs)) {
                         log.error("file item is empty fileId:{}, newFileContext:{}", fileId, newFileContext);
                         throw new RuntimeException("file item is empty");
                     }

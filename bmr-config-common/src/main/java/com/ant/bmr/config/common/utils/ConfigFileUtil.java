@@ -27,6 +27,13 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 
+import javax.xml.transform.OutputKeys;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerException;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
+
 @Slf4j
 public class ConfigFileUtil {
 
@@ -207,7 +214,7 @@ public class ConfigFileUtil {
     // 生成XML文件内容
     private static String getXmlFileContext(Map<String, String> configMap) {
         // 创建 XML 文档
-        Document document = XmlUtil.createXml();
+        Document document = XmlUtil.createXml("configuration");
 
         // 获取根元素 <configuration>
         Element rootElement = document.getDocumentElement();
@@ -231,7 +238,34 @@ public class ConfigFileUtil {
         }
 
         // 将 Document 转换为字符串
-        return GlobalContext.XML_FILE_HEADER + XmlUtil.toStr(document);
+        return formatXml(XmlUtil.toStr(document));
+    }
+
+    // 格式化xml文件内容
+    private static String formatXml(String xmlContent) {
+
+        // 将字符串转换为 Document
+        Document document = XmlUtil.parseXml(xmlContent);
+
+        // 使用 Transformer 格式化 XML
+        TransformerFactory transformerFactory = TransformerFactory.newInstance();
+
+        try {
+            Transformer transformer = transformerFactory.newTransformer();
+
+            // 设置格式化属性
+            transformer.setOutputProperty(OutputKeys.INDENT, "yes");
+            transformer.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", "4");
+            transformer.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "no");
+            transformer.setOutputProperty(OutputKeys.ENCODING, "UTF-8");
+
+            // 将 Document 转换为字符串
+            StringWriter writer = new StringWriter();
+            transformer.transform(new DOMSource(document), new StreamResult(writer));
+            return writer.toString();
+        } catch (Exception e) {
+            throw new RuntimeException("format xml error: ", e);
+        }
     }
 
     // 生成YAML文件内容
