@@ -11,7 +11,6 @@ import java.util.stream.Collectors;
 import org.yaml.snakeyaml.Yaml;
 
 import cn.hutool.crypto.SecureUtil;
-import com.ant.bmr.config.common.context.GlobalContext;
 import org.springframework.mock.web.MockMultipartFile;
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.util.StrUtil;
