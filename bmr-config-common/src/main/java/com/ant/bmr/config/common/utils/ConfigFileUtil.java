@@ -8,7 +8,10 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
+import org.yaml.snakeyaml.Yaml;
+
 import cn.hutool.crypto.SecureUtil;
+import com.ant.bmr.config.common.context.GlobalContext;
 import org.springframework.mock.web.MockMultipartFile;
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.util.StrUtil;
@@ -184,5 +187,56 @@ public class ConfigFileUtil {
             throw new RuntimeException("get file md5 error:", e);
         }
         return fileMd5;
+    }
+
+    // 生成xml或yaml文件内容
+    public static String getAnalyzeFileContext(String fileType, Map<String, String> configMap) {
+        String fileContext;
+        if (StrUtil.equals(FileTypeEnum.XML.getCode(), fileType)) {
+            fileContext = getXmlFileContext(configMap);
+        } else if (StrUtil.equals(FileTypeEnum.YML.getCode(), fileType) ||
+                StrUtil.equals(FileTypeEnum.YAML.getCode(), fileType)) {
+            fileContext = getYamlFileContext(configMap);
+        } else {
+            log.error("not support analyze file type: {}", fileType);
+            throw new RuntimeException("not support analyze file type:" + fileType);
+        }
+        return fileContext;
+    }
+
+    // 生成XML文件内容
+    private static String getXmlFileContext(Map<String, String> configMap) {
+        // 创建 XML 文档
+        Document document = XmlUtil.createXml();
+
+        // 获取根元素 <configuration>
+        Element rootElement = document.getDocumentElement();
+
+        // 遍历配置项，生成 <property> 元素
+        for (Map.Entry<String, String> entry : configMap.entrySet()) {
+            Element propertyElement = document.createElement("property");
+
+            // 创建 <name> 元素
+            Element nameElement = document.createElement("name");
+            nameElement.setTextContent(entry.getKey());
+            propertyElement.appendChild(nameElement);
+
+            // 创建 <value> 元素
+            Element valueElement = document.createElement("value");
+            valueElement.setTextContent(entry.getValue());
+            propertyElement.appendChild(valueElement);
+
+            // 将 <property> 添加到根元素
+            rootElement.appendChild(propertyElement);
+        }
+
+        // 将 Document 转换为字符串
+        return GlobalContext.XML_FILE_HEADER + XmlUtil.toStr(document);
+    }
+
+    // 生成YAML文件内容
+    private static String getYamlFileContext(Map<String, String> configMap) {
+        Yaml yaml = new Yaml();
+        return yaml.dump(configMap);
     }
 }

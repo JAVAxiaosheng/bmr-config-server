@@ -228,9 +228,18 @@ public class FileOpCoreServiceImpl implements FileOpCoreService {
                 }
                 String fileOriginName = fileInfo.getFileOriginName();
                 // 生成文件的最新内容
-                String modifyFileContext = "";
+                String modifyFileContext;
                 if (request.getAnalyze()) {
-                    modifyFileContext = "xxxxx";
+                    List<ConfigFileItemDTO> fileItemDTOs = request.getFileItems();
+                    Map<String, String> fileItemMap = fileItemDTOs.stream().flatMap(item -> {
+                        Map<String, String> itemMap = Collections.synchronizedMap(new LinkedHashMap<>());
+                        itemMap.put(item.getFileItemKey(), item.getFileItemValue());
+                        return itemMap.entrySet().stream();
+                    }).collect(Collectors.toMap(
+                            Map.Entry::getKey,
+                            Map.Entry::getValue
+                    ));
+                    modifyFileContext = ConfigFileUtil.getAnalyzeFileContext(fileInfo.getFileType(), fileItemMap);
                 } else {
                     modifyFileContext = request.getFileContext();
                 }

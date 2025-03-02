@@ -6,4 +6,5 @@ public class GlobalContext {
     public static final Boolean ANALYZE_ENABLE = true;
     public static final Boolean ANALYZE_DISABLE = false;
     public static final String DEFAULT_USER_NAME = "admin";
+    public static final String XML_FILE_HEADER = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
 }
