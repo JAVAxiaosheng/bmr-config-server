@@ -7,6 +7,7 @@ import javax.annotation.Resource;
 
 import com.ant.bmr.config.common.result.Result;
 import com.ant.bmr.config.core.service.ClusterInfoService;
+import com.ant.bmr.config.core.utils.LogTracerUtil;
 import com.ant.bmr.config.data.dto.ClusterInfoDTO;
 import com.ant.bmr.config.data.metadata.ClusterInfo;
 import io.swagger.annotations.Api;
@@ -52,6 +53,8 @@ public class ClusterInfoController {
     @GetMapping(value = "/query/all/clusters", produces = MediaType.APPLICATION_JSON_VALUE)
     @ApiOperation(value = "查询所有集群列表", httpMethod = "GET")
     public Result<List<ClusterInfoDTO>> queryAllClusters() {
+        LogTracerUtil.logInfo("[ClusterInfoController]queryAllClusters result: " +
+                clusterInfoService.queryAllClusters());
         return Result.success(clusterInfoService.queryAllClusters());
     }
 }

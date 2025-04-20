@@ -8,6 +8,7 @@ import javax.annotation.Resource;
 
 import com.ant.bmr.config.common.context.GlobalContext;
 import com.ant.bmr.config.core.service.ClusterInfoService;
+import com.ant.bmr.config.core.utils.LogTracerUtil;
 import com.ant.bmr.config.data.dto.ClusterInfoDTO;
 import com.ant.bmr.config.data.mapper.ClusterInfoMapper;
 import com.ant.bmr.config.data.metadata.ClusterInfo;
@@ -57,12 +58,12 @@ public class ClusterInfoServiceImpl extends ServiceImpl<ClusterInfoMapper, Clust
             throw new RuntimeException("cluster info not exist,id: " + clusterInfo.getId());
         }
         LambdaUpdateWrapper<ClusterInfo> updateWrapper = Wrappers.lambdaUpdate(ClusterInfo.class)
-            .set(Objects.nonNull(clusterInfo.getClusterEnName()), ClusterInfo::getClusterEnName,
-                clusterInfo.getClusterEnName())
-            .set(Objects.nonNull(clusterInfo.getClusterName()), ClusterInfo::getClusterName,
-                clusterInfo.getClusterName())
-            .eq(ClusterInfo::getId, clusterInfo.getId())
-            .eq(ClusterInfo::getDeleted, GlobalContext.HAS_NOT_DELETED);
+                .set(Objects.nonNull(clusterInfo.getClusterEnName()), ClusterInfo::getClusterEnName,
+                        clusterInfo.getClusterEnName())
+                .set(Objects.nonNull(clusterInfo.getClusterName()), ClusterInfo::getClusterName,
+                        clusterInfo.getClusterName())
+                .eq(ClusterInfo::getId, clusterInfo.getId())
+                .eq(ClusterInfo::getDeleted, GlobalContext.HAS_NOT_DELETED);
 
         // 三更新
         this.update(updateWrapper);
@@ -71,9 +72,10 @@ public class ClusterInfoServiceImpl extends ServiceImpl<ClusterInfoMapper, Clust
     @Override
     public List<ClusterInfoDTO> queryAllClusters() {
         LambdaQueryWrapper<ClusterInfo> queryWrapper = Wrappers.lambdaQuery(ClusterInfo.class)
-            .eq(ClusterInfo::getDeleted, GlobalContext.HAS_NOT_DELETED);
+                .eq(ClusterInfo::getDeleted, GlobalContext.HAS_NOT_DELETED);
+        LogTracerUtil.logInfo("[ClusterInfoService]queryAllClusters queryWrapper: " + queryWrapper);
         return clusterInfoMapper.selectList(queryWrapper).stream()
-            .map(ClusterInfoDTO::new)
-            .collect(Collectors.toList());
+                .map(ClusterInfoDTO::new)
+                .collect(Collectors.toList());
     }
 }
